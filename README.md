@@ -11,7 +11,7 @@ Requires Emacs 29 or later (built-in `sqlite` support).
 ### Clone the repository
 
 ```sh
-git clone https://github.com/yourname/kobo-notes.git
+git clone https://github.com/StevenFolkersma/kobo-markings.el.git
 ```
 
 Then load the file in your init:
@@ -26,7 +26,7 @@ Available in Emacs 30+:
 
 ```elisp
 (use-package kobo-read
-  :vc (:url "https://github.com/yourname/kobo-notes"
+  :vc (:url "https://github.com/StevenFolkersma/kobo-markings.el.git"
        :rev :newest))
 ```
 
