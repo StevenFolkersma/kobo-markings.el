@@ -1,4 +1,4 @@
-;;; kobo-read.el --- Export Kobo highlights to Org mode  -*- lexical-binding: t -*-
+;;; kobo-markings.el --- Export Kobo highlights to Org mode  -*- lexical-binding: t -*-
 
 ;; Requires Emacs 29+ for built-in sqlite support.
 
@@ -14,10 +14,10 @@
   :type 'file
   :group 'kobo)
 
-(defcustom kobo-output-file
-  (expand-file-name "~/Documents/Projects/kobo-notes/kobo-highlights.org")
-  "Destination Org file for exported highlights."
-  :type 'file
+(defcustom kobo-export-dir
+  (expand-file-name "~/Documents/Projects/kobo-notes/")
+  "Directory where timestamped export files are written."
+  :type 'directory
   :group 'kobo)
 
 (defconst kobo--sql
@@ -25,8 +25,7 @@
      c_book.Attribution  AS author,
      c_book.Title        AS book_title,
      b.Text              AS highlight,
-     b.Annotation        AS note,
-     b.DateCreated       AS date
+     b.Annotation        AS note
    FROM Bookmark b
    JOIN content c_chap ON b.ContentID = c_chap.ContentID
    JOIN content c_book ON b.VolumeID  = c_book.ContentID
@@ -42,17 +41,18 @@
 
 (defun kobo--format-entry (author book highlight note)
   "Return an Org entry string for one marking."
-  (let* ((heading  (format "* %s - %s\n" author (or book "Unknown")))
+  (let* ((heading  (format "* %s\n" (or book "Unknown")))
+         (byline   (format "%s - %s\n\n" author (or book "Unknown")))
          (body     (format "#+begin_quote\n%s\n#+end_quote\n"
                            (string-trim (or highlight ""))))
          (note-str (let ((n (string-trim (or note ""))))
-                     (if (string-empty-p n) "" (format "\n/%s/\n" n)))))
-    (concat heading body note-str)))
+                     (if (string-empty-p n) "" (format "\n%s\n" n)))))
+    (concat heading byline body note-str)))
 
 (defun kobo--run-query (db-path)
   "Open DB-PATH and return rows for `kobo--sql'."
   (unless (fboundp 'sqlite-open)
-    (user-error "kobo-read.el requires Emacs 29+ with built-in sqlite support"))
+    (user-error "kobo-markings.el requires Emacs 29+ with built-in sqlite support"))
   (let* ((db   (sqlite-open db-path))
          (rows (sqlite-select db kobo--sql)))
     (sqlite-close db)
@@ -60,10 +60,11 @@
 
 ;;;###autoload
 (defun kobo-export ()
-  "Export all Kobo highlights to `kobo-output-file' and open it."
+  "Export all Kobo highlights to a timestamped file in `kobo-export-dir'."
   (interactive)
   (let* ((db-path  (expand-file-name kobo-db-path))
-         (out-path (expand-file-name kobo-output-file)))
+         (filename (format-time-string "kobo-marking-export-%d-%m-%y.org"))
+         (out-path (expand-file-name filename kobo-export-dir)))
     (unless (file-exists-p db-path)
       (user-error "Kobo database not found: %s" db-path))
     (let* ((rows  (kobo--run-query db-path))
@@ -72,7 +73,7 @@
         (insert "#+TITLE: Kobo Highlights\n")
         (insert (format "#+DATE: %s\n\n" (format-time-string "%Y-%m-%d")))
         (dolist (row rows)
-          (cl-destructuring-bind (attribution book highlight note _date) row
+          (cl-destructuring-bind (attribution book highlight note) row
             (insert (kobo--format-entry
                      (kobo--primary-author attribution)
                      book highlight note))
@@ -82,5 +83,5 @@
       (message "Exported %d markings → %s" count out-path)
       (find-file out-path))))
 
-(provide 'kobo-read)
-;;; kobo-read.el ends here
+(provide 'kobo-markings)
+;;; kobo-markings.el ends here
